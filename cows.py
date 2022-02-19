@@ -1,3 +1,4 @@
+import random
 import sys
 import pygame
 
@@ -12,19 +13,21 @@ class Creature:
         self.im = pygame.image.load(image)
         self.rect = self.im.get_rect()
         self.rect.move(self.x, self.y)
-        self.genome = []
+        self.genome = [None] * 2
 
     def get_speed(self):
         try:
-            return self.genome[0]
+            return self.genome[0] if self.genome[0] is not None else 0
         except IndexError:
             return 0
 
     def draw(self):
-        self.screen.blit(self.im, self.rect.move([self.x, self.y]))
+        image = self.im.copy()
+        image.fill((255, 0, 0), special_flags=pygame.BLEND_MULT)
+        self.screen.blit(image, self.rect.move([self.x, self.y]))
 
     def logic(self):
-        pass
+        self.x = self.x + self.get_speed()
 
 
 class Grass(Creature):
@@ -46,6 +49,7 @@ class Game:
         self._size = 1024, 768
         self._black = 0, 0, 0
         self.screen = pygame.display.set_mode(self._size)
+        self.creatures: list = []
         self.init_game()
 
     def loop(self):
@@ -67,11 +71,12 @@ class Game:
                 sys.exit(0)
 
     def init_game(self):
-        self.creatures = []
-        grass = Grass(0, 0, self.screen)
-        cow = Cow(0, 64, self.screen)
-        self.creatures.append(grass)
-        self.creatures.append(cow)
+        for i in range(5):
+            x = random.randint(0, self.screen.get_width())
+            y = random.randint(0, self.screen.get_height())
+            new_grass = Creature(x, y, self.screen, image="images/grass.png")
+            new_grass.genome[1] = 100
+            self.creatures.append(new_grass)
 
     def draw_creatures(self):
         for creature in self.creatures:
