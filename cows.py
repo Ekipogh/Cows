@@ -4,13 +4,11 @@ import pygame
 
 
 class Creature:
-    def __init__(self, x, y, screen, image: str):
-        if image is None:
-            image = "images/error.png"
+    def __init__(self, x, y, screen, image: str = "images/blank.png"):
         self.screen = screen
         self.x = x
         self.y = y
-        self.im = pygame.image.load(image)
+        self.im: pygame.Surface = pygame.image.load(image)
         self.rect = self.im.get_rect()
         self.rect.move(self.x, self.y)
         self.genome = [None] * 2
@@ -21,26 +19,24 @@ class Creature:
         except IndexError:
             return 0
 
+    def get_photosynthesis(self):
+        try:
+            return self.genome[1] if self.genome[1] is not None else 0
+        except IndexError:
+            return 0
+
     def draw(self):
+        # colors:
+        photosynthesis = self.get_photosynthesis()
+        greenness = photosynthesis * 255 if photosynthesis > 0 else 0
+        if greenness > 255:
+            greenness = 255
         image = self.im.copy()
-        image.fill((255, 0, 0), special_flags=pygame.BLEND_MULT)
-        self.screen.blit(image, self.rect.move([self.x, self.y]))
+        image.fill((0, greenness, 0, 255), special_flags=pygame.BLEND_RGBA_ADD)
+        self.screen.blit(image, (self.x, self.y))
 
     def logic(self):
         self.x = self.x + self.get_speed()
-
-
-class Grass(Creature):
-    def __init__(self, x, y, screen):
-        super().__init__(x, y, screen, image="images/grass.png")
-
-
-class Cow(Creature):
-    def __init__(self, x, y, screen):
-        super().__init__(x, y, screen, image="images/cow.png")
-
-    def logic(self):
-        pass
 
 
 class Game:
@@ -74,8 +70,8 @@ class Game:
         for i in range(5):
             x = random.randint(0, self.screen.get_width())
             y = random.randint(0, self.screen.get_height())
-            new_grass = Creature(x, y, self.screen, image="images/grass.png")
-            new_grass.genome[1] = 100
+            new_grass = Creature(x, y, self.screen)
+            new_grass.genome[1] = 1
             self.creatures.append(new_grass)
 
     def draw_creatures(self):
