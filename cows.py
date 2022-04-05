@@ -1,17 +1,33 @@
 import random
 import sys
 import pygame
+import torch
+import torch.nn as nn
 
 
 class Creature:
     def __init__(self, x, y, screen, image: str = "images/blank.png"):
+        self._photosynthesis_scale = 0.01
         self.screen = screen
         self.x = x
         self.y = y
         self.im: pygame.Surface = pygame.image.load(image)
         self.rect = self.im.get_rect()
         self.rect.move(self.x, self.y)
+        # Physical attributes
+        self.mass = 0
+        # 0 - speed
+        # 1 - photosynthesis
         self.genome = [None] * 2
+        # self.model = nn.Sequential(
+        #     nn.Linear(768, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, 64),
+        #     nn.ReLU(),
+        #     nn.Linear(64, 4),
+        #     nn.LogSoftmax(dim=1)
+        # )
+        # print(self.model(torch.randn(1,768)))
 
     def get_speed(self):
         try:
@@ -32,11 +48,17 @@ class Creature:
         if greenness > 255:
             greenness = 255
         image = self.im.copy()
+        image = pygame.transform.scale(image, (self.mass, self.mass))
         image.fill((0, greenness, 0, 255), special_flags=pygame.BLEND_RGBA_ADD)
         self.screen.blit(image, (self.x, self.y))
 
     def logic(self):
-        self.x = self.x + self.get_speed()
+        # Behaive
+        # Photosynthesise
+        self.photosynthesise()
+
+    def photosynthesise(self):
+        self.mass = self.mass + self.get_photosynthesis() * self._photosynthesis_scale
 
 
 class Game:
