@@ -48,15 +48,22 @@ class Creature:
         except IndexError:
             return 0
 
+    def set_photosynthesis(self, photosynthesis):
+        self.genome[1] = int(photosynthesis)
+
+    def set_sexual_reproduction(self, reproduction):
+        self.genome[2] = int(reproduction)
+
     def draw(self):
         # colors:
         photosynthesis = self.get_photosynthesis()
         greenness = photosynthesis * 255 if photosynthesis > 0 else 0
+        bluenness = 255 if photosynthesis == 0 else 0
         if greenness > 255:
             greenness = 255
         image = self.im.copy()
         image = pygame.transform.scale(image, (self.mass, self.mass))
-        image.fill((0, greenness, 0, 255), special_flags=pygame.BLEND_RGBA_ADD)
+        image.fill((0, greenness, bluenness, 255), special_flags=pygame.BLEND_RGBA_ADD)
         self.screen.blit(image, (self.x, self.y))
 
     def logic(self, game):
@@ -75,7 +82,8 @@ class Creature:
                 if self.reproduction_tick <= 0:
                     r_x = random.randint(-50, 50)
                     r_y = random.randint(-50, 50)
-                    new_grass = Creature(self.x + r_x, self.y + r_y, game.screen)
+                    new_grass = Creature(
+                        self.x + r_x, self.y + r_y, game.screen)
                     new_grass.genome = self.genome.copy()
                     game.add_creature(new_grass)
                     self.reset_reproduction_tick()
@@ -133,9 +141,16 @@ class Game:
             x = random.randint(0, self.screen.get_width())
             y = random.randint(0, self.screen.get_height())
             new_grass = Creature(x, y, self.screen)
-            new_grass.genome[1] = 1
-            new_grass.genome[2] = 0
+            new_grass.set_photosynthesis(True)
+            new_grass.set_sexual_reproduction(False)
             self.creatures.append(new_grass)
+        x = random.randint(0, self.screen.get_width())
+        y = random.randint(0, self.screen.get_height())
+        new_cow = Creature(x, y, self.screen)
+        new_cow.mass == 50
+        new_cow.set_photosynthesis(False)
+        new_cow.set_sexual_reproduction(True)
+        self.creatures.append(new_cow)
 
     def draw_creatures(self):
         for creature in self.creatures:
