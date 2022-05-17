@@ -72,6 +72,7 @@ class Creature:
         self.tick_age()
         # Photosynthesise
         self.photosynthesise()
+        self.think(game)
 
     def photosynthesise(self):
         self.mass = self.mass + self.get_photosynthesis() * Creature._photosynthesis_scale
@@ -104,6 +105,9 @@ class Creature:
     def is_dead(self):
         return self.dead
 
+    def think(self, game):
+        pygame.image.save(game.screen, f"{self.__hash__()}.jpg")
+
 
 class Game:
     def __init__(self):
@@ -119,8 +123,8 @@ class Game:
         while ...:
             ms = clock.tick(60)
             self.screen.fill(self._black)
-            self.logic()
             self.draw()
+            self.logic()
             pygame.display.flip()
 
     def logic(self):
@@ -147,7 +151,7 @@ class Game:
         x = random.randint(0, self.screen.get_width())
         y = random.randint(0, self.screen.get_height())
         new_cow = Creature(x, y, self.screen)
-        new_cow.mass == 50
+        new_cow.mass = 50
         new_cow.set_photosynthesis(False)
         new_cow.set_sexual_reproduction(True)
         self.creatures.append(new_cow)
