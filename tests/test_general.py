@@ -1,6 +1,6 @@
 import pytest
 
-from cows import Creature
+from creature import Creature
 
 
 class TestCreature:
