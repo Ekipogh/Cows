@@ -1,15 +1,19 @@
 import random
 import sys
 import pygame
+import torch
+import torchvision.transforms as transforms
+from PIL import Image
 
 from creature import Creature
 
 
 class Game:
     def __init__(self):
+        self.screenshot_tensor = None
         self._screenshot_filename = "screenshot.jpg"
         pygame.init()
-        self._size = 1024, 768
+        self._size = 1024, 1024
         self._black = 0, 0, 0
         self.screen = pygame.display.set_mode(self._size)
         self.creatures: list = []
@@ -18,15 +22,20 @@ class Game:
     def loop(self):
         clock = pygame.time.Clock()
         while ...:
+            self.screenshot()
             ms = clock.tick(60)
             self.screen.fill(self._black)
-            self.draw()
             self.logic()
+            self.draw()
             pygame.display.flip()
 
-    def logic(self):
+    def screenshot(self):
         # make a screenshot
-        pygame.image.save(self.screen, self._screenshot_filename)
+        raw_str = pygame.image.tostring(self.screen, "RGB", False)
+        screenshot = Image.frombytes("RGB", self.screen.get_size(), raw_str)
+        self.screenshot_tensor = transforms.ToTensor()(screenshot)
+
+    def logic(self):
         # remove dead creatures
         for creature in self.creatures:
             if creature.is_dead():
