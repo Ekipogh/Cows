@@ -1,9 +1,9 @@
 import random
-
 import pygame
 import torch
-from torch import nn as nn
+import torch.nn as nn
 import torch.nn.functional as F
+import cows
 
 
 class Creature:
@@ -11,7 +11,7 @@ class Creature:
     _photosynthesis_scale = 0.01
     _maximum_age = 2001
 
-    def __init__(self, x, y, screen, image: str = "images/blank.png"):
+    def __init__(self, x: int, y: int, screen: pygame.Surface, image: str = "images/blank.png"):
         self.screen = screen
         self.x = x
         self.y = y
@@ -26,26 +26,22 @@ class Creature:
         # 0 - speed
         # 1 - photosynthesis
         # 2 - reproduction: 0 - asexual; 1 - sexual
-        self.genome = [None] * 3
+        # 3 - vision radius
+        self.genome = [0] * 4
+        self.genome[3] = 100
         self.net = Net()
 
     def get_speed(self):
-        try:
-            return self.genome[0] if self.genome[0] is not None else 0
-        except IndexError:
-            return 0
+        return self.genome[0]
 
     def get_photosynthesis(self):
-        try:
-            return self.genome[1] if self.genome[1] is not None else 0
-        except IndexError:
-            return 0
+        return self.genome[1]
 
-    def set_photosynthesis(self, photosynthesis):
-        self.genome[1] = int(photosynthesis)
+    def set_photosynthesis(self, photosynthesis: int):
+        self.genome[1] = photosynthesis
 
-    def set_sexual_reproduction(self, reproduction):
-        self.genome[2] = int(reproduction)
+    def set_sexual_reproduction(self, reproduction: int):
+        self.genome[2] = reproduction
 
     def draw(self):
         # colors:
@@ -59,19 +55,21 @@ class Creature:
         image.fill((0, greenness, blueness, 255), special_flags=pygame.BLEND_RGBA_ADD)
         self.screen.blit(image, (self.x, self.y))
 
-    def logic(self, game_state):
+    def logic(self, game_state: cows.Game):
         # Behave
         self.reproduce(game_state)
         self.tick_age()
         # Photosynthesise
         self.photosynthesise()
+        # Get a screenshot
+        screenshot = game_state.screenshot(self.x, self.y, self.get_vision())
         # Think and act
-        self.think(game_state)
+        self.think(screenshot)
 
     def photosynthesise(self):
         self.mass = self.mass + self.get_photosynthesis() * Creature._photosynthesis_scale
 
-    def reproduce(self, game):
+    def reproduce(self, game: cows.Game):
         if self.genome[2] is not None:
             if not self.is_sexual_reproduction():
                 if self.reproduction_tick <= 0:
@@ -99,9 +97,15 @@ class Creature:
     def is_dead(self):
         return self.dead
 
-    def think(self, game_state):
-        foobar = self.net(game_state.screenshot_tensor)
+    def think(self, vision):
+        foobar = self.net(vision)
         print(foobar)
+
+    def get_vision(self):
+        return self.genome[3]
+
+    def set_vision(self, vision: int):
+        self.genome[3] = vision
 
 
 class Net(nn.Module):
@@ -111,10 +115,9 @@ class Net(nn.Module):
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
         self.conv3 = nn.Conv2d(16, 32, 5)
-        self.fc1 = nn.Linear(15376, 420)
-        self.fc2 = nn.Linear(420, 120)
-        self.fc3 = nn.Linear(120, 60)
-        self.fc4 = nn.Linear(60, 10)
+        self.fc1 = nn.Linear(441, 120)
+        self.fc2 = nn.Linear(120, 60)
+        self.fc3 = nn.Linear(60, 10)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
@@ -123,6 +126,5 @@ class Net(nn.Module):
         x = torch.flatten(x, 1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = F.relu(self.fc3(x))
-        x = self.fc4(x)
+        x = self.fc3(x)
         return x
