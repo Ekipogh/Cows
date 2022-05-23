@@ -20,6 +20,7 @@ jobs:
         pip install pygame
         pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
         pip install pylint
+        pip install pytest
     - name: Analysing the code with pylint
       run: |
         pylint $(git ls-files '*.py')
