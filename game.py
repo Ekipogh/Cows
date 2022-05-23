@@ -22,20 +22,39 @@ class Game:
 
     def screenshot(self, x: int, y: int, radius: int):
         # make a screenshot
+        screen_width = self.screen.get_width()
+        screen_height = self.screen.get_height()
         left = x - radius
         top = y - radius
         width = radius * 2
+        height = radius * 2
         left = max(left, 0)
-        top = max(left, 0)
-        if left + width > self.screen.get_width():
-            left = self.screen.get_width() - width
-        if top + width > self.screen.get_height():
-            top = self.screen.get_height() - width
-        rect = pygame.Rect(left, top, width, width)
+        top = max(top, 0)
+        left = min(left, screen_width)
+        top = min(top, screen_height)
+        # if square is over right side
+        if left + width > screen_width:
+            width = screen_width - left
+        if left < 0:
+            width = width - left
+        if top + height > screen_height:
+            height = screen_height - top
+        if top < 0:
+            height = height - top
+        rect = pygame.Rect(left, top, width, height)
         sub = self.screen.subsurface(rect)
         raw_str = pygame.image.tostring(sub, "RGB", False)
-        screenshot = Image.frombytes("RGB", (width, width), raw_str)
+        screenshot = Image.frombytes("RGB", (width, height), raw_str)
+        screenshot = Game.make_square(screenshot, min_size=(radius * 2))
         return transforms.ToTensor()(screenshot)
+
+    @staticmethod
+    def make_square(image: Image, min_size=256, fill_color=(255, 255, 255, 0)):
+        x, y = image.size
+        size = max(min_size, x, y)
+        new_im = Image.new('RGBA', (size, size), fill_color)
+        new_im.paste(image, (int((size - x) / 2), int((size - y) / 2)))
+        return new_im
 
     def logic(self):
         # remove dead creatures

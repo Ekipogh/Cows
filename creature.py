@@ -70,8 +70,13 @@ class Creature:
                 if self.age != 0 and self.age % Creature._default_reproduction_tick == 0:
                     r_x = random.randint(-50, 50)
                     r_y = random.randint(-50, 50)
-                    new_grass = Creature(
-                        self.x + r_x, self.y + r_y)
+                    new_x = self.x + r_x
+                    new_x = min(new_x, game_state.screen.get_width() - 1)
+                    new_x = max(new_x, 1)
+                    new_y = self.y + r_y
+                    new_y = min(new_y, game_state.screen.get_height() - 1)
+                    new_y = max(new_y, 1)
+                    new_grass = Creature(new_x, new_y)
                     new_grass.genome = self.genome.copy()
                     game_state.add_creature(new_grass)
 
