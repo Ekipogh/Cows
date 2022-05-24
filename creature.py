@@ -6,11 +6,11 @@ import torch.nn.functional as F
 
 
 class Creature:
-    _default_reproduction_tick = 1000
+    _default_reproduction_tick = 500
     _photosynthesis_scale = 0.01
-    _maximum_age = 2001
+    _maximum_age = 1001
 
-    def __init__(self, x: int, y: int, image: str = "images/blank.png"):
+    def __init__(self, x: int, y: int, image: str = "images/blank.png", genome=None):
         self.x = x
         self.y = y
         self.image: pygame.Surface = pygame.image.load(image)
@@ -18,13 +18,17 @@ class Creature:
         rect.move(self.x, self.y)
         # Physical attributes
         self.age = 0
-        self.mass = 0
-        # 0 - speed
-        # 1 - photosynthesis
-        # 2 - reproduction: 0 - asexual; 1 - sexual
-        # 3 - vision radius
-        self.genome = [0] * 4
-        self.genome[3] = 16
+        self.mass = 1
+        if genome is not None:
+            self.genome = genome
+        else:
+            # 0 - speed
+            # 1 - photosynthesis
+            # 2 - reproduction: 0 - asexual; 1 - sexual
+            # 3 - vision radius
+            self.genome = [0] * 4
+            self.genome[3] = 16  # vision radius
+        self.recolor()
         self.net = Net()
 
     def get_speed(self):
@@ -35,20 +39,14 @@ class Creature:
 
     def set_photosynthesis(self, photosynthesis: int):
         self.genome[1] = photosynthesis
+        self.recolor()
 
     def set_sexual_reproduction(self, reproduction: int):
         self.genome[2] = reproduction
 
     def draw(self, game_state):
-        # colors:
-        photosynthesis = self.get_photosynthesis()
-        greenness = photosynthesis * 255 if photosynthesis > 0 else 0
-        blueness = 255 if photosynthesis == 0 else 0
-        greenness = min(greenness, 255)
-        image = self.image.copy()
-        image = pygame.transform.scale(image, (self.mass, self.mass))
-        image.fill((0, greenness, blueness, 255), special_flags=pygame.BLEND_RGBA_ADD)
-        game_state.screen.blit(image, (self.x, self.y))
+        self.image = pygame.transform.scale(self.image, (self.mass, self.mass))
+        game_state.screen.blit(self.image, (self.x, self.y))
 
     def logic(self, game_state):
         # Behave
@@ -57,9 +55,9 @@ class Creature:
         # Photosynthesise
         self.photosynthesise()
         # Get a screenshot
-        screenshot = game_state.screenshot(self.x, self.y, self.get_vision())
+        # screenshot = game_state.screenshot(self.x, self.y, self.get_vision())
         # Think and act
-        self.think(screenshot)
+        # self.think(screenshot)
 
     def photosynthesise(self):
         self.mass = self.mass + self.get_photosynthesis() * Creature._photosynthesis_scale
@@ -76,16 +74,13 @@ class Creature:
                     new_y = self.y + r_y
                     new_y = min(new_y, game_state.screen.get_height() - 1)
                     new_y = max(new_y, 1)
-                    new_grass = Creature(new_x, new_y)
-                    new_grass.genome = self.genome.copy()
+                    new_grass = Creature(new_x, new_y, genome=self.genome.copy())
                     game_state.add_creature(new_grass)
 
     def is_sexual_reproduction(self):
         return self.genome[2] == 1
 
     def tick_age(self):
-        if self.age >= Creature._maximum_age:
-            return
         self.age += 1
 
     def is_dead(self):
@@ -99,6 +94,19 @@ class Creature:
 
     def set_vision(self, vision: int):
         self.genome[3] = vision
+
+    def greenness(self):
+        photosynthesis = self.get_photosynthesis()
+        greenness = photosynthesis * 255 if photosynthesis > 0 else 0
+        greenness = min(greenness, 255)
+        return greenness
+
+    def blueness(self):
+        blueness = 255 if self.get_photosynthesis() == 0 else 0
+        return blueness
+
+    def recolor(self):
+        self.image.fill((0, self.greenness(), self.blueness(), 255), special_flags=pygame.BLEND_RGBA_ADD)
 
 
 class Net(nn.Module):

@@ -8,6 +8,7 @@ from creature import Creature
 
 class Game:
     def __init__(self):
+        self.running = True
         pygame.init()
         self._size = 1024, 1024
         self._black = 0, 0, 0
@@ -16,7 +17,7 @@ class Game:
         self.init_game()
 
     def loop(self):
-        while ...:
+        while self.running:
             self.logic()
             self.draw()
 
@@ -67,7 +68,7 @@ class Game:
         events = pygame.event.get()
         for event in events:
             if event.type == pygame.QUIT:
-                sys.exit(0)
+                self.running = False
 
     def init_game(self):
         for _ in range(5):
