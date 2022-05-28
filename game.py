@@ -1,5 +1,4 @@
 import random
-import sys
 import pygame
 from PIL import Image
 from torchvision import transforms
