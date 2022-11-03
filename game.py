@@ -70,6 +70,7 @@ class Game:
                 self.running = False
 
     def init_game(self):
+        Creature.set_game(self)
         for _ in range(5):
             x = random.randint(0, self.screen.get_width())
             y = random.randint(0, self.screen.get_height())

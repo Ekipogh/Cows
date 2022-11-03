@@ -1,7 +1,9 @@
 import random
+from math import atan2
+
 import pygame
 import torch
-from torch import nn
+from torch import nn, tensor
 import torch.nn.functional as F
 
 
@@ -9,8 +11,10 @@ class Creature:
     _default_reproduction_tick = 500
     _photosynthesis_scale = 0.01
     _maximum_age = 1001
+    _game = None
 
     def __init__(self, x: int, y: int, image: str = "images/blank.png", genome=None):
+        self.actions = []
         self.x = x
         self.y = y
         self.image: pygame.Surface = pygame.image.load(image)
@@ -54,10 +58,9 @@ class Creature:
         self.tick_age()
         # Photosynthesise
         self.photosynthesise()
-        # Get a screenshot
-        # screenshot = game_state.screenshot(self.x, self.y, self.get_vision())
         # Think and act
-        # self.think(screenshot)
+        self.think()
+        self.act()
 
     def photosynthesise(self):
         self.mass = self.mass + self.get_photosynthesis() * Creature._photosynthesis_scale
@@ -86,8 +89,15 @@ class Creature:
     def is_dead(self):
         return self.age > self._maximum_age
 
-    def think(self, vision):
-        pass
+    def think(self):
+        nearest = self.find_nearest_creature()
+        # angle
+        delta_x = nearest.x - self.x
+        delta_y = nearest.y - self.y
+        theta_radians = atan2(delta_y, delta_x)
+        # distance
+        distance = abs(delta_x) + abs(delta_y)
+        self.actions = self.net(tensor([theta_radians, distance])).tolist()
 
     def get_vision(self):
         return self.genome[3]
@@ -108,22 +118,43 @@ class Creature:
     def recolor(self):
         self.image.fill((0, self.greenness(), self.blueness(), 255), special_flags=pygame.BLEND_RGBA_ADD)
 
+    @classmethod
+    def set_game(cls, game):
+        if Creature._game is None:
+            Creature._game = game
+
+    def find_nearest_creature(self):
+        creatures = Creature._game.creatures
+        min_distance = float("inf")
+        min_creature = None
+        for creature in creatures:
+            dx = creature.x - self.x
+            dy = creature.y - self.y
+            distance = abs(dx) + abs(dy)
+            if distance < min_distance:
+                min_distance = distance
+                min_creature = creature
+        return min_creature
+
+    def act(self):
+        up = self.actions[0]
+        down = self.actions[1]
+        left = self.actions[2]
+        right = self.actions[3]
+        self.move(up, down, left, right)
+
+    def move(self, up, down, left, right):
+        self.x += right * self.get_speed()
+        self.x -= left * self.get_speed()
+        self.y += up * self.get_speed()
+        self.y -= down * self.get_speed()
+
 
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.fc = nn.Linear(2, 4)
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = torch.flatten(x)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = self.fc(x)
         return x
