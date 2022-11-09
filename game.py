@@ -78,13 +78,16 @@ class Game:
             new_grass.set_photosynthesis(True)
             new_grass.set_sexual_reproduction(False)
             self.add_creature(new_grass)
-        x = random.randint(0, self.screen.get_width())
-        y = random.randint(0, self.screen.get_height())
-        new_cow = Creature(x, y)
-        new_cow.mass = 50
-        new_cow.set_photosynthesis(False)
-        new_cow.set_sexual_reproduction(True)
-        self.add_creature(new_cow)
+        for _ in range(5):
+            x = random.randint(0, self.screen.get_width())
+            y = random.randint(0, self.screen.get_height())
+            new_cow = Creature(x, y)
+            new_cow.mass = 50
+            new_cow.set_photosynthesis(False)
+            new_cow.set_sexual_reproduction(True)
+            new_cow.set_speed(2)
+            new_cow.set_vision(15)
+            self.add_creature(new_cow)
 
     def draw_creatures(self):
         for creature_to_draw in self.creatures:
@@ -97,3 +100,9 @@ class Game:
 
     def add_creature(self, creature_to_add):
         self.creatures.append(creature_to_add)
+
+    def width(self):
+        return self._size[0]
+
+    def height(self):
+        return self._size[1]

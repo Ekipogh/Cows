@@ -1,19 +1,19 @@
+import copy
 import random
 from math import atan2
 
 import pygame
 import torch
 from torch import nn, tensor
-import torch.nn.functional as F
 
 
 class Creature:
     _default_reproduction_tick = 500
     _photosynthesis_scale = 0.01
-    _maximum_age = 1001
+    _maximum_age = 100001
     _game = None
 
-    def __init__(self, x: int, y: int, image: str = "images/blank.png", genome=None):
+    def __init__(self, x: int, y: int, image: str = "images/blank.png", genome=None, net=None):
         self.actions = []
         self.x = x
         self.y = y
@@ -30,13 +30,18 @@ class Creature:
             # 1 - photosynthesis
             # 2 - reproduction: 0 - asexual; 1 - sexual
             # 3 - vision radius
-            self.genome = [0] * 4
-            self.genome[3] = 16  # vision radius
+            self.genome = [0] * 4  # vision radius
         self.recolor()
-        self.net = Net()
+        if net is not None:
+            self.net = net
+        else:
+            self.net = Net()
 
     def get_speed(self):
         return self.genome[0]
+
+    def set_speed(self, speed):
+        self.genome[0] = speed
 
     def get_photosynthesis(self):
         return self.genome[1]
@@ -77,8 +82,10 @@ class Creature:
                     new_y = self.y + r_y
                     new_y = min(new_y, game_state.screen.get_height() - 1)
                     new_y = max(new_y, 1)
-                    new_grass = Creature(new_x, new_y, genome=self.genome.copy())
-                    game_state.add_creature(new_grass)
+                    new_creature = Creature(new_x, new_y, genome=self.genome.copy(),
+                                            net=copy.deepcopy(self.net).mutate())
+
+                    game_state.add_creature(new_creature)
 
     def is_sexual_reproduction(self):
         return self.genome[2] == 1
@@ -91,13 +98,14 @@ class Creature:
 
     def think(self):
         nearest = self.find_nearest_creature()
-        # angle
-        delta_x = nearest.x - self.x
-        delta_y = nearest.y - self.y
-        theta_radians = atan2(delta_y, delta_x)
-        # distance
-        distance = abs(delta_x) + abs(delta_y)
-        self.actions = self.net(tensor([theta_radians, distance])).tolist()
+        if nearest is not None:
+            # angle
+            delta_x = nearest.x - self.x
+            delta_y = nearest.y - self.y
+            theta_radians = atan2(delta_y, delta_x)
+            # distance
+            distance = abs(delta_x) + abs(delta_y)
+            self.actions = self.net(tensor([theta_radians, distance])).tolist()
 
     def get_vision(self):
         return self.genome[3]
@@ -128,6 +136,8 @@ class Creature:
         min_distance = float("inf")
         min_creature = None
         for creature in creatures:
+            if creature is self:
+                continue
             dx = creature.x - self.x
             dy = creature.y - self.y
             distance = abs(dx) + abs(dy)
@@ -144,10 +154,15 @@ class Creature:
         self.move(up, down, left, right)
 
     def move(self, up, down, left, right):
+        print(f"Up: {up} Down: {down} Left: {left} Right: {right}")
         self.x += right * self.get_speed()
         self.x -= left * self.get_speed()
         self.y += up * self.get_speed()
         self.y -= down * self.get_speed()
+        self.x = min(self.x, self._game.width())
+        self.y = min(self.y, self._game.height())
+        self.x = max(0, self.x)
+        self.y = max(0, self.y)
 
 
 class Net(nn.Module):
@@ -158,3 +173,7 @@ class Net(nn.Module):
     def forward(self, x):
         x = self.fc(x)
         return x
+
+    def mutate(self):
+        for param in self.parameters():
+            param.data += torch.rand_like(param)
