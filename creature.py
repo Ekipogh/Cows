@@ -1,4 +1,5 @@
 import copy
+import math
 import random
 from math import atan2
 
@@ -6,12 +7,15 @@ import pygame
 import torch
 from torch import nn, tensor
 
+from grass import Grass
+
 
 class Creature:
     _default_reproduction_tick = 500
     _photosynthesis_scale = 0.01
     _maximum_age = 100001
     _game = None
+    _eating_distance = 2
 
     def __init__(self, x: int, y: int, image: str = "images/blank.png", genome=None, net=None):
         self.actions = []
@@ -36,6 +40,8 @@ class Creature:
             self.net = net
         else:
             self.net = Net()
+        self.debug = False
+        self.dead = False
 
     def get_speed(self):
         return self.genome[0]
@@ -92,20 +98,36 @@ class Creature:
 
     def tick_age(self):
         self.age += 1
+        if self.age > Creature._maximum_age:
+            self.dead = True
 
     def is_dead(self):
-        return self.age > self._maximum_age
+        return self.dead
 
     def think(self):
-        nearest = self.find_nearest_creature()
-        if nearest is not None:
+        nearest_creature: Creature = self.find_nearest_creature()
+        nearest_grass, nearest_distance = self.find_nearest_grass()
+        distance_creature = float("inf")
+        distance_grass = float("inf")
+        creature_radians = -1
+        grass_radians = -1
+        nearest_color = 0
+        if nearest_creature is not None:
+            nearest_color = nearest_creature.greenness() + nearest_creature.blueness()
             # angle
-            delta_x = nearest.x - self.x
-            delta_y = nearest.y - self.y
-            theta_radians = atan2(delta_y, delta_x)
+            delta_x = nearest_creature.x - self.x
+            delta_y = nearest_creature.y - self.y
+            creature_radians = atan2(delta_y, delta_x)
             # distance
-            distance = abs(delta_x) + abs(delta_y)
-            self.actions = self.net(tensor([theta_radians, distance])).tolist()
+            distance_creature = math.sqrt(delta_x * delta_x + delta_y * delta_y)
+        if nearest_grass is not None:
+            # angle
+            delta_x = nearest_grass.x - self.x
+            delta_y = nearest_grass.y - self.y
+            grass_radians = atan2(delta_y, delta_x)
+
+        self.actions = self.net(
+            tensor([creature_radians, distance_creature, nearest_color, grass_radians, nearest_distance])).tolist()
 
     def get_vision(self):
         return self.genome[3]
@@ -146,15 +168,30 @@ class Creature:
                 min_creature = creature
         return min_creature
 
+    def find_nearest_grass(self):
+        grasses = Creature._game.grass
+        min_distance = float("inf")
+        min_grass = None
+        for grass in grasses:
+            dx = grass.x - self.x
+            dy = grass.y - self.y
+            distance = abs(dx) + abs(dy)
+            if distance < min_distance:
+                min_distance = distance
+                min_grass = grass
+        return min_grass, min_distance
+
     def act(self):
         up = self.actions[0]
         down = self.actions[1]
         left = self.actions[2]
         right = self.actions[3]
+        eat = True if self.actions[4] > 0.5 else False
         self.move(up, down, left, right)
+        if eat:
+            self.eat()
 
     def move(self, up, down, left, right):
-        print(f"Up: {up} Down: {down} Left: {left} Right: {right}")
         self.x += right * self.get_speed()
         self.x -= left * self.get_speed()
         self.y += up * self.get_speed()
@@ -164,14 +201,22 @@ class Creature:
         self.x = max(0, self.x)
         self.y = max(0, self.y)
 
+    def eat(self):
+        nearest_grass, nearest_distance = self.find_nearest_grass()
+        if nearest_distance <= Creature._eating_distance:
+            self.mass = nearest_grass.mass
+            nearest_grass.kill()
+
 
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc = nn.Linear(2, 4)
+        self.fc = nn.Linear(5, 5)
+        self.syg = nn.Sigmoid()
 
     def forward(self, x):
         x = self.fc(x)
+        x = self.syg(x)
         return x
 
     def mutate(self):

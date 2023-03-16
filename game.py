@@ -3,6 +3,7 @@ import pygame
 from PIL import Image
 from torchvision import transforms
 from creature import Creature
+from grass import Grass
 
 
 class Game:
@@ -13,6 +14,7 @@ class Game:
         self._black = 0, 0, 0
         self.screen = pygame.display.set_mode(self._size)
         self.creatures: list = []
+        self.grass: list = []
         self.init_game()
 
     def loop(self):
@@ -58,9 +60,15 @@ class Game:
 
     def logic(self):
         # remove dead creatures
+        creature: Creature
         for creature in self.creatures:
             if creature.is_dead():
                 self.creatures.remove(creature)
+        # remove dead grass
+        grass: Grass
+        for grass in self.grass:
+            if grass.is_dead():
+                self.grass.remove(grass)
         for creature in self.creatures:
             creature.logic(self)
 
@@ -74,19 +82,19 @@ class Game:
         for _ in range(5):
             x = random.randint(0, self.screen.get_width())
             y = random.randint(0, self.screen.get_height())
-            new_grass = Creature(x, y)
-            new_grass.set_photosynthesis(True)
-            new_grass.set_sexual_reproduction(False)
-            self.add_creature(new_grass)
+            new_grass = Grass(x, y)
+            self.add_grass(new_grass)
         for _ in range(5):
             x = random.randint(0, self.screen.get_width())
             y = random.randint(0, self.screen.get_height())
             new_cow = Creature(x, y)
             new_cow.mass = 50
             new_cow.set_photosynthesis(False)
-            new_cow.set_sexual_reproduction(True)
-            new_cow.set_speed(2)
+            new_cow.set_sexual_reproduction(False)
+            new_cow.set_speed(0.02)
             new_cow.set_vision(15)
+            if _ == 0:
+                new_cow.debug = True
             self.add_creature(new_cow)
 
     def draw_creatures(self):
@@ -96,6 +104,7 @@ class Game:
     def draw(self):
         self.screen.fill(self._black)
         self.draw_creatures()
+        self.draw_grass()
         pygame.display.flip()
 
     def add_creature(self, creature_to_add):
@@ -106,3 +115,10 @@ class Game:
 
     def height(self):
         return self._size[1]
+
+    def add_grass(self, grass):
+        self.grass.append(grass)
+
+    def draw_grass(self):
+        for grass in self.grass:
+            grass.draw(self)
