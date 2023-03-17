@@ -1,10 +1,8 @@
-import pytest
-
 from creature import Creature
 
 
 class TestCreature:
-    creature = Creature(0, 0, image="../images/blank.png")
+    creature = Creature(0, 0, image="./images/blank.png")
 
     def test_zero_speed(self):
         assert self.creature.get_speed() == 0
