@@ -7,10 +7,10 @@ import pygame
 import torch
 from torch import nn, tensor
 
-from grass import Grass
+from drawable import Drawable
 
 
-class Creature:
+class Creature(Drawable):
     _default_reproduction_tick = 500
     _photosynthesis_scale = 0.01
     _maximum_age = 100001
@@ -18,15 +18,9 @@ class Creature:
     _eating_distance = 2
 
     def __init__(self, x: int, y: int, image: str = "images/blank.png", genome=None, net=None):
-        self.actions = []
-        self.x = x
-        self.y = y
-        self.image: pygame.Surface = pygame.image.load(image)
-        rect = self.image.get_rect()
-        rect.move(self.x, self.y)
+        super().__init__(x, y, image)
         # Physical attributes
         self.age = 0
-        self.mass = 1
         if genome is not None:
             self.genome = genome
         else:
@@ -42,6 +36,7 @@ class Creature:
             self.net = Net()
         self.debug = False
         self.dead = False
+        self.actions = []
 
     def get_speed(self):
         return self.genome[0]
@@ -58,10 +53,6 @@ class Creature:
 
     def set_sexual_reproduction(self, reproduction: int):
         self.genome[2] = reproduction
-
-    def draw(self, game_state):
-        self.image = pygame.transform.scale(self.image, (self.mass, self.mass))
-        game_state.screen.blit(self.image, (self.x, self.y))
 
     def logic(self, game_state):
         # Behave
@@ -108,7 +99,6 @@ class Creature:
         nearest_creature: Creature = self.find_nearest_creature()
         nearest_grass, nearest_distance = self.find_nearest_grass()
         distance_creature = float("inf")
-        distance_grass = float("inf")
         creature_radians = -1
         grass_radians = -1
         nearest_color = 0
@@ -127,7 +117,12 @@ class Creature:
             grass_radians = atan2(delta_y, delta_x)
 
         self.actions = self.net(
-            tensor([creature_radians, distance_creature, nearest_color, grass_radians, nearest_distance])).tolist()
+            tensor([creature_radians,
+                    distance_creature,
+                    nearest_color,
+                    grass_radians,
+                    nearest_distance
+                    ])).tolist()
 
     def get_vision(self):
         return self.genome[3]
@@ -146,7 +141,10 @@ class Creature:
         return blueness
 
     def recolor(self):
-        self.image.fill((0, self.greenness(), self.blueness(), 255), special_flags=pygame.BLEND_RGBA_ADD)
+        self.image.fill(
+            (0, self.greenness(), self.blueness(), 255),
+            special_flags=pygame.BLEND_RGBA_ADD
+        )
 
     @classmethod
     def set_game(cls, game):

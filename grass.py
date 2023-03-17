@@ -1,16 +1,13 @@
 import pygame
 
+from drawable import Drawable
 
-class Grass:
+
+class Grass(Drawable):
     _photosynthesis_rate = 1
 
     def __init__(self, x: int, y: int, image: str = "images/grass.png"):
-        self.x = x
-        self.y = y
-        self.image: pygame.Surface = pygame.image.load(image)
-        rect = self.image.get_rect()
-        rect.move(self.x, self.y)
-        self.mass = 0
+        super().__init__(x, y, image)
         self.dead = False
 
     def draw(self, game_state):
