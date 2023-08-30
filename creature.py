@@ -20,23 +20,30 @@ class Creature(Drawable):
     def __init__(self, x: int, y: int, image: str = "images/blank.png", genome=None, net=None):
         super().__init__(x, y, image)
         # Physical attributes
-        self.age = 0
+        self.age: int = 0
         if genome is not None:
-            self.genome = genome
+            self.genome: list = genome
         else:
             # 0 - speed
             # 1 - photosynthesis
             # 2 - reproduction: 0 - asexual; 1 - sexual
             # 3 - vision radius
-            self.genome = [0] * 4  # vision radius
+            self.genome: list = [0] * 4  # vision radius
         self.recolor()
         if net is not None:
-            self.net = net
+            self.net: Net = net
         else:
-            self.net = Net()
-        self.debug = False
-        self.dead = False
-        self.actions = []
+            self.net: Net = Net()
+        self.debug: bool = False
+        self.dead: bool = False
+        self.action: int = -1
+        self._actions = [
+            {"action": self.up, "name": "up", "id": 0},
+            {"action": self.down, "name": "down", "id": 1},
+            {"action": self.left, "name": "left", "id": 2},
+            {"action": self.right, "name": "right", "id": 3},
+            {"action": self.eat, "name": "eat", "id": 4}
+        ]
 
     def get_speed(self):
         return self.genome[0]
@@ -109,14 +116,15 @@ class Creature(Drawable):
             delta_y = nearest_creature.y - self.y
             creature_radians = atan2(delta_y, delta_x)
             # distance
-            distance_creature = math.sqrt(delta_x * delta_x + delta_y * delta_y)
+            distance_creature = math.sqrt(
+                delta_x * delta_x + delta_y * delta_y)
         if nearest_grass is not None:
             # angle
             delta_x = nearest_grass.x - self.x
             delta_y = nearest_grass.y - self.y
             grass_radians = atan2(delta_y, delta_x)
 
-        self.actions = self.net(
+        self.action = self.net(
             tensor([creature_radians,
                     distance_creature,
                     nearest_color,
@@ -180,24 +188,24 @@ class Creature(Drawable):
         return min_grass, min_distance
 
     def act(self):
-        up = self.actions[0]
-        down = self.actions[1]
-        left = self.actions[2]
-        right = self.actions[3]
-        eat = True if self.actions[4] > 0.5 else False
-        self.move(up, down, left, right)
-        if eat:
-            self.eat()
+        if self.action >= 0:
+            self._actions[self.action]["action"]()
 
-    def move(self, up, down, left, right):
-        self.x += right * self.get_speed()
-        self.x -= left * self.get_speed()
-        self.y += up * self.get_speed()
-        self.y -= down * self.get_speed()
-        self.x = min(self.x, self._game.width())
-        self.y = min(self.y, self._game.height())
-        self.x = max(0, self.x)
+    def up(self):
+        self.y -= self.get_speed()
         self.y = max(0, self.y)
+
+    def down(self):
+        self.y += self.get_speed()
+        self.y = min(self._game.height(), self.y)
+
+    def left(self):
+        self.x -= self.get_speed()
+        self.x = max(0, self.x)
+
+    def right(self):
+        self.x += self.get_speed()
+        self.x = min(self._game.width(), self.x)
 
     def eat(self):
         nearest_grass, nearest_distance = self.find_nearest_grass()
@@ -205,17 +213,22 @@ class Creature(Drawable):
             self.mass = nearest_grass.mass
             nearest_grass.kill()
 
+    def is_clicked(self, x, y):
+        return self.x < x < self.x + self.mass and self.y < y < self.y + self.mass
+
 
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
         self.fc = nn.Linear(5, 5)
         self.syg = nn.Sigmoid()
+        self.softmax = nn.Softmax(dim=0)
 
     def forward(self, x):
         x = self.fc(x)
         x = self.syg(x)
-        return x
+        x = self.softmax(x)
+        return x.argmax(dim=0)
 
     def mutate(self):
         for param in self.parameters():

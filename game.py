@@ -15,6 +15,7 @@ class Game:
         self.screen = pygame.display.set_mode(self._size)
         self.creatures: list = []
         self.grass: list = []
+        self.debug_create: Creature = None
         self.init_game()
 
     def loop(self):
@@ -47,7 +48,7 @@ class Game:
         sub = self.screen.subsurface(rect)
         raw_str = pygame.image.tostring(sub, "RGB", False)
         screenshot = Image.frombytes("RGB", (width, height), raw_str)
-        screenshot = Game.make_square(screenshot, min_size=(radius * 2))
+        screenshot = Game.make_square(screenshot, min_size=radius * 2)
         return transforms.ToTensor()(screenshot)
 
     @staticmethod
@@ -74,6 +75,15 @@ class Game:
 
         events = pygame.event.get()
         for event in events:
+            # Detect a mouse click and select a debug creature
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                x, y = pygame.mouse.get_pos()
+                debug_creature = None
+                for creature in self.creatures:
+                    if creature.is_clicked(x, y):
+                        print("Clicked on creature")
+                        self.debug_create = creature
+                        break
             if event.type == pygame.QUIT:
                 self.running = False
 
@@ -91,7 +101,7 @@ class Game:
             new_cow.mass = 50
             new_cow.set_photosynthesis(False)
             new_cow.set_sexual_reproduction(False)
-            new_cow.set_speed(0.02)
+            new_cow.set_speed(0.2)
             new_cow.set_vision(15)
             if _ == 0:
                 new_cow.debug = True
@@ -105,6 +115,7 @@ class Game:
         self.screen.fill(self._black)
         self.draw_creatures()
         self.draw_grass()
+        self.display_hud()
         pygame.display.flip()
 
     def add_creature(self, creature_to_add):
@@ -122,3 +133,36 @@ class Game:
     def draw_grass(self):
         for grass in self.grass:
             grass.draw(self)
+
+    def display_hud(self):
+        x = 0
+        y = 0
+        font = pygame.font.SysFont("monospace", 15)
+        debug_text = []
+        if self.debug_create is not None:
+            debug_text = self.debug_creature_text()
+        debug_text.extend(self.debug_grass_text())
+        self.print_text(x, y, font, debug_text)
+
+    def print_text(self, x, y, font, debug_text) -> None:
+        if debug_text is None:
+            return
+        for line in debug_text:
+            text = font.render(line, True, (255, 255, 255))
+            self.screen.blit(text, (x, y))
+            y += 15
+
+    def debug_grass_text(self) -> list:
+        debug_text = []
+        debug_text.append("Grass count: " + str(len(self.grass)))
+        return debug_text
+
+    def debug_creature_text(self) -> list:
+        debug_text = []
+        # Creature current actions:
+        debug_text.append("Creature current action: " +
+                          self.debug_create._actions[self.debug_create.action]["name"])
+        # Creature coordinates:
+        debug_text.append("Creature coordinates: " +
+                          "X: " + str(self.debug_create.x) + " Y: " + str(self.debug_create.y))
+        return debug_text
