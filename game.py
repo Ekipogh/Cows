@@ -7,6 +7,10 @@ from grass import Grass
 
 
 class Game:
+    _MAX_GRASS = 2000
+    _GRASS_SPAWN_AMOUNT = 100
+    _CREATURE_SPAWN_AMOUNT = 6
+    
     def __init__(self):
         self.running = True
         pygame.init()
@@ -15,7 +19,9 @@ class Game:
         self.screen = pygame.display.set_mode(self._size)
         self.creatures: list = []
         self.grass: list = []
-        self.debug_create: Creature = None
+        self.dead_creatures: list = []
+        self.debug_creature: Creature = None
+        self.generation = 0
         self.init_game()
 
     def loop(self):
@@ -60,18 +66,28 @@ class Game:
         return new_im
 
     def logic(self):
+        for creature in self.creatures:
+            creature.logic(self)
+        for grass in self.grass:
+            grass.update(self)
         # remove dead creatures
         creature: Creature
         for creature in self.creatures:
             if creature.is_dead():
+                self.dead_creatures.append(creature)
                 self.creatures.remove(creature)
         # remove dead grass
         grass: Grass
         for grass in self.grass:
             if grass.is_dead():
                 self.grass.remove(grass)
-        for creature in self.creatures:
-            creature.logic(self)
+        # cull the grass
+        if len(self.grass) > Game._MAX_GRASS:
+            self.grass = self.grass[:Game._MAX_GRASS]
+        if len(self.creatures) == 1:
+            self.creatures[0].kill()
+            self.dead_creatures.append(self.creatures[0])
+            self.restart()
 
         events = pygame.event.get()
         for event in events:
@@ -82,19 +98,18 @@ class Game:
                 for creature in self.creatures:
                     if creature.is_clicked(x, y):
                         print("Clicked on creature")
-                        self.debug_create = creature
+                        self.debug_creature = creature
                         break
             if event.type == pygame.QUIT:
                 self.running = False
 
     def init_game(self):
         Creature.set_game(self)
-        for _ in range(5):
-            x = random.randint(0, self.screen.get_width())
-            y = random.randint(0, self.screen.get_height())
-            new_grass = Grass(x, y)
-            self.add_grass(new_grass)
-        for _ in range(5):
+        self.init_grass()
+        self.init_creatures()
+
+    def init_creatures(self):
+        for _ in range(Game._CREATURE_SPAWN_AMOUNT):
             x = random.randint(0, self.screen.get_width())
             y = random.randint(0, self.screen.get_height())
             new_cow = Creature(x, y)
@@ -139,9 +154,9 @@ class Game:
         y = 0
         font = pygame.font.SysFont("monospace", 15)
         debug_text = []
-        if self.debug_create is not None:
+        if self.debug_creature is not None:
             debug_text = self.debug_creature_text()
-        debug_text.extend(self.debug_grass_text())
+        debug_text.extend(self.debug_common())
         self.print_text(x, y, font, debug_text)
 
     def print_text(self, x, y, font, debug_text) -> None:
@@ -152,17 +167,48 @@ class Game:
             self.screen.blit(text, (x, y))
             y += 15
 
-    def debug_grass_text(self) -> list:
+    def debug_common(self) -> list:
         debug_text = []
+        debug_text.append("Generation: " + str(self.generation))
         debug_text.append("Grass count: " + str(len(self.grass)))
+        debug_text.append("Creature count: " + str(len(self.creatures))) 
+        debug_text.append("Dead creature count: " + str(len(self.dead_creatures)))
         return debug_text
 
     def debug_creature_text(self) -> list:
         debug_text = []
         # Creature current actions:
         debug_text.append("Creature current action: " +
-                          self.debug_create._actions[self.debug_create.action]["name"])
+                          self.debug_creature._actions[self.debug_creature.action]["name"])
         # Creature coordinates:
         debug_text.append("Creature coordinates: " +
-                          "X: " + str(self.debug_create.x) + " Y: " + str(self.debug_create.y))
+                          "X: " + str(self.debug_creature.x) + " Y: " + str(self.debug_creature.y))
+        # Creature mass:
+        debug_text.append("Creature mass: " + str(self.debug_creature.mass))
         return debug_text
+
+    def restart(self):
+        self.generation += 1
+        self.creatures = []
+        self.grass = []
+        self.mutate_creatures()
+        self.init_grass()
+        
+    def mutate_creatures(self):
+        # sort dead creatures by age
+        self.dead_creatures.sort(key=lambda x: x.age, reverse=True)
+        # procreate every other creature with the next, twice
+        for i in range(0, len(self.dead_creatures), 2):
+            if i + 1 < len(self.dead_creatures):
+                creature1 = self.dead_creatures[i]
+                creature2 = self.dead_creatures[i + 1]
+                creature1.procreate(creature2, self)
+                creature2.procreate(creature1, self)
+        self.dead_creatures = []
+
+    def init_grass(self):
+        for _ in range(Game._GRASS_SPAWN_AMOUNT):
+            x = random.randint(0, self.screen.get_width())
+            y = random.randint(0, self.screen.get_height())
+            new_grass = Grass(x, y)
+            self.add_grass(new_grass)

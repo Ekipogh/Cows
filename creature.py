@@ -15,8 +15,9 @@ class Creature(Drawable):
     _photosynthesis_scale = 0.01
     _maximum_age = 100001
     _game = None
-    _eating_distance = 2
-
+    _eating_distance = 20
+    _LIVING_COST = 0.001
+    
     def __init__(self, x: int, y: int, image: str = "images/blank.png", genome=None, net=None):
         super().__init__(x, y, image)
         # Physical attributes
@@ -62,11 +63,11 @@ class Creature(Drawable):
         self.genome[2] = reproduction
 
     def logic(self, game_state):
-        # Behave
-        self.reproduce(game_state)
         self.tick_age()
         # Photosynthesise
-        self.photosynthesise()
+        # self.photosynthesise()
+        # Process mass
+        self.process_mass()
         # Think and act
         self.think()
         self.act()
@@ -99,7 +100,7 @@ class Creature(Drawable):
         if self.age > Creature._maximum_age:
             self.dead = True
 
-    def is_dead(self):
+    def is_dead(self) -> bool:
         return self.dead
 
     def think(self):
@@ -191,31 +192,85 @@ class Creature(Drawable):
         if self.action >= 0:
             self._actions[self.action]["action"]()
 
-    def up(self):
-        self.y -= self.get_speed()
+    def mass_cooficient(self):
+        # the bigger the mass, the slower the creature
+        # or zero if the mass is zero
+        cooficient_tweak = 10
+        return cooficient_tweak / self.mass if self.mass > 0 else 0
+    
+    def move(self, movement_vector):
+        dx = movement_vector[0]
+        dy = movement_vector[1]
+        self.x += dx
+        self.y += dy
+        self.x = min(self._game.width(), self.x)
+        self.x = max(0, self.x)
+        self.y = min(self._game.height(), self.y)
         self.y = max(0, self.y)
+        # subtract the sum of dx and dy from the mass
+        mass_tweak = 0.1
+        self.mass -= (abs(dx) + abs(dy)) * mass_tweak
+        self.mass = max(0, self.mass)
+
+    def up(self):
+        # movement y is negative speed multiplied by the mass cooficient
+        movement = (0, -self.get_speed() * self.mass_cooficient())
+        self.move(movement)
 
     def down(self):
-        self.y += self.get_speed()
-        self.y = min(self._game.height(), self.y)
+        movement = (0, self.get_speed() * self.mass_cooficient())
+        self.move(movement)
 
     def left(self):
-        self.x -= self.get_speed()
-        self.x = max(0, self.x)
+        movement = (-self.get_speed() * self.mass_cooficient(), 0)
+        self.move(movement)
 
     def right(self):
-        self.x += self.get_speed()
-        self.x = min(self._game.width(), self.x)
+        movement = (self.get_speed() * self.mass_cooficient(), 0)
+        self.move(movement)
 
     def eat(self):
-        nearest_grass, nearest_distance = self.find_nearest_grass()
-        if nearest_distance <= Creature._eating_distance:
-            self.mass = nearest_grass.mass
-            nearest_grass.kill()
+        # find all grasses in eating distance
+        # add their mass to self
+        # kill them
+        grasses = Creature._game.grass
+        for grass in grasses:
+            dx = grass.x - self.x
+            dy = grass.y - self.y
+            distance = abs(dx) + abs(dy)
+            if distance < Creature._eating_distance:
+                self.mass += grass.mass
+                grass.kill()
 
     def is_clicked(self, x, y):
         return self.x < x < self.x + self.mass and self.y < y < self.y + self.mass
 
+    def process_mass(self):
+        # substact a small amount of mass every tick
+        self.mass -= Creature._LIVING_COST
+        if self.mass <= 0:
+            self.kill()
+            
+    def procreate(self, other, game_state):
+        # create a new creature with a mix of both genomes
+        # mutate a randome gene.
+        # get the net from eather self or other at randome
+        # mutate the net
+        new_genome = []
+        for i in range(len(self.genome)):
+            new_genome.append(random.choice([self.genome[i], other.genome[i]]))
+        new_net = random.choice([self.net, other.net])
+        # change a randome gene
+        new_genome[random.randint(0, len(new_genome) - 1)] = random.random()
+        new_net.mutate()
+        new_creature = Creature(self.x, self.y, genome=new_genome, net=new_net)
+        # starting mass is 50
+        new_creature.mass = 50
+        # add the new creature to the game
+        game_state.add_creature(new_creature)
+        
+    def kill(self):
+        self.dead = True
 
 class Net(nn.Module):
     def __init__(self):
